@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>English Reading Helper</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="toolbar">
+    <nav id="breadcrumb" class="breadcrumb"></nav>
+
+    <div id="reader-tools" class="reader-tools" hidden>
+      <div class="controls">
+        <button id="btn-prev" title="이전 문장 (←)">⏮</button>
+        <button id="btn-play" title="재생 / 일시정지 (Space)">▶</button>
+        <button id="btn-next" title="다음 문장 (→)">⏭</button>
+      </div>
+
+      <label class="rate">
+        속도 <input type="range" id="rate" min="0.5" max="2" step="0.1" value="1">
+        <span id="rate-value">1.0x</span>
+      </label>
+
+      <select id="voice-select" title="음성 선택"></select>
+      <button id="btn-reader-ocr" title="사진/붙여넣기로 이 페이지에 내용 추가">📷</button>
+    </div>
+  </header>
+
+  <!-- 서재: 책(폴더) 목록 -->
+  <main id="library-view" class="view" hidden>
+    <div class="view-head">
+      <h1>📚 내 서재</h1>
+      <button id="btn-new-folder" class="primary">＋ 새 책</button>
+    </div>
+    <div id="folder-grid" class="folder-grid"></div>
+    <p id="library-empty" class="empty" hidden>아직 책이 없어요. <b>＋ 새 책</b>으로 원서 폴더를 만들어 보세요.</p>
+  </main>
+
+  <!-- 책: 페이지 목록 -->
+  <main id="folder-view" class="view" hidden>
+    <div class="view-head">
+      <h1 id="folder-title"></h1>
+      <button id="btn-rename-folder" title="책 이름 바꾸기">✏️</button>
+      <span class="spacer"></span>
+      <button id="btn-continue" class="primary">▶ 이어 읽기</button>
+    </div>
+    <div class="folder-actions">
+      <label class="file-btn">
+        ＋ txt 파일 추가
+        <input type="file" id="file-input" accept=".txt,text/plain" multiple hidden>
+      </label>
+      <button id="btn-folder-ocr">＋ 사진 OCR / 붙여넣기</button>
+      <span class="hint">txt 파일을 여기에 끌어다 놓아도 됩니다 · 행을 끌어서 순서 변경</span>
+    </div>
+    <ol id="page-list" class="page-list"></ol>
+    <p id="folder-empty" class="empty" hidden>페이지가 없어요. txt 파일이나 사진으로 페이지를 추가하세요.</p>
+
+    <section id="highlight-section" class="highlight-section" hidden>
+      <h2>🖍 형광펜 모아보기 <span id="highlight-count" class="hint"></span></h2>
+      <ul id="highlight-list" class="highlight-list"></ul>
+    </section>
+  </main>
+
+  <!-- 읽기 -->
+  <main id="reader" class="reader view" hidden>
+    <article id="content" class="content"></article>
+    <div class="page-nav">
+      <button id="btn-prev-page">◀ 이전 페이지</button>
+      <button id="btn-next-page" class="primary">다음 페이지 ▶</button>
+    </div>
+    <div id="popup" class="popup" hidden>
+      <div class="popup-tools">
+        <button class="hl-btn" data-color="yellow" title="노랑 형광펜"></button>
+        <button class="hl-btn" data-color="green" title="초록 형광펜"></button>
+        <button class="hl-btn" data-color="blue" title="파랑 형광펜"></button>
+        <button class="hl-btn" data-color="pink" title="분홍 형광펜"></button>
+        <button id="hl-erase" class="hl-erase" title="형광펜 지우기" hidden>🧽 지우기</button>
+      </div>
+      <div class="popup-head">
+        <span id="popup-source" class="popup-source"></span>
+        <button id="popup-speak" title="듣기">🔊</button>
+      </div>
+      <div id="popup-phonetic" class="popup-phonetic"></div>
+      <div id="popup-translation" class="popup-translation"></div>
+      <div id="popup-dict" class="popup-dict"></div>
+    </div>
+  </main>
+
+  <footer class="statusbar">
+    <span id="progress"></span>
+    <span id="translator-status"></span>
+  </footer>
+
+  <dialog id="ocr-dialog" class="ocr-dialog">
+    <div class="ocr-head">
+      <h2>📷 페이지 추가 · 사진 OCR / 텍스트 붙여넣기</h2>
+      <button id="ocr-close" title="닫기">✕</button>
+    </div>
+
+    <section class="ocr-step">
+      <label class="file-btn">
+        사진 추가 (여러 장 가능)
+        <input type="file" id="ocr-input" accept="image/*" multiple hidden>
+      </label>
+      <span class="hint">페이지 순서대로 번호가 붙습니다. 평평하고 밝게 찍을수록 정확해요.</span>
+      <div id="ocr-thumbs" class="ocr-thumbs"></div>
+      <button id="ocr-run" class="primary" disabled>인식 시작</button>
+      <span id="ocr-status" class="ocr-status"></span>
+    </section>
+
+    <section class="ocr-step">
+      <textarea id="ocr-text" class="ocr-text" placeholder="사진 인식 결과가 여기에 표시됩니다. 직접 고치거나, 다른 곳에서 복사한 텍스트를 붙여넣어도 돼요." spellcheck="true"></textarea>
+      <div class="ocr-actions">
+        <label>페이지 이름 <input type="text" id="ocr-name"></label>
+        <button id="ocr-append" disabled>지금 페이지 끝에 이어 붙이기</button>
+        <button id="ocr-new" class="primary" disabled>새 페이지로 추가</button>
+      </div>
+    </section>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+  <script src="js/text.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/tts.js"></script>
+  <script src="js/translate.js"></script>
+  <script src="js/ocr.js"></script>
+  <script src="js/reader.js"></script>
+  <script src="js/library.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
