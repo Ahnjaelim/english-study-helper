@@ -182,19 +182,29 @@ const Reader = (() => {
     glossTimer = setTimeout(positionGlosses, 100);
   }).observe(content);
 
-  // 번역 없이 저장된 형광펜(번역 전에 팝업을 닫은 경우 등)은 표시할 때 채운다.
+  // 번역 없이 저장된 형광펜(번역 전에 팝업을 닫은 경우, 번역기가 모르는 단어 등)은 표시할 때 채운다.
+  // 단어는 번역기 → 한영사전 첫 뜻 → 영영사전 첫 뜻의 번역 순서로 시도한다.
+  async function koreanFor(text) {
+    const out = await Translate.translate(text).catch(() => null);
+    if (out && !Translate.isUntranslated(text, out)) return out;
+    if (!SINGLE_WORD.test(text)) return null;
+    const ko = await Translate.lookupKorean(text).catch(() => null);
+    if (ko) return ko.meanings[0].definitions[0];
+    const en = await Translate.lookup(text).catch(() => null);
+    const def = en?.meanings[0]?.definitions[0];
+    return def ? Translate.translate(def).catch(() => null) : null;
+  }
+
   function fillTranslation(h) {
     if (fetchingNote.has(h.id)) return;
     fetchingNote.add(h.id);
     const p = page;
-    Translate.translate(h.text)
-      .then(out => {
-        if (Translate.isUntranslated(h.text, out)) return;
-        h.translation = out;
-        Library.savePage(p);
-        if (page === p) renderNotes();
-      })
-      .catch(() => {});
+    koreanFor(h.text).then(out => {
+      if (!out) return;
+      h.translation = out;
+      Library.savePage(p);
+      if (page === p) renderNotes();
+    });
   }
 
   function setNotesOn(on) {
@@ -539,6 +549,9 @@ const Reader = (() => {
     if (entry.word !== original.toLowerCase()) head.textContent += ` · 원형 ${entry.word}`;
     popupDict.append(head);
 
+    // 번역 사용량(MyMemory 하루 제한)을 아끼려고 영영 뜻은 앞의 2개만 번역한다.
+    const MAX_TRANSLATED_DEFS = 2;
+    let translatedCount = 0;
     let first = true;
     for (const m of entry.meanings) {
       const pos = document.createElement('div');
@@ -549,7 +562,7 @@ const Reader = (() => {
         const li = document.createElement('li');
         li.textContent = d;
         ol.append(li);
-        if (translateDefs) {
+        if (translateDefs && translatedCount++ < MAX_TRANSLATED_DEFS) {
           const ko = document.createElement('div');
           ko.className = 'def-ko';
           li.append(ko);
