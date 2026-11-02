@@ -119,11 +119,26 @@ const OCR = (() => {
     return paragraphs;
   }
 
-  // 줄 끝 하이픈 + 다음 줄 소문자 시작이면 하이픈을 지우고 붙인다 (beauti- / ful → beautiful).
   function joinLine(a, b) {
-    if (!a) return b;
-    if (/[A-Za-z]-$/.test(a) && /^[a-z]/.test(b)) return a.slice(0, -1) + b;
-    return a + ' ' + b;
+    return a ? a + ' ' + b : b;
+  }
+
+  // 줄바꿈 때문에 하이픈으로 끊긴 단어를 붙인다.
+  //   "Bough-\nery", "Bough- ery" (줄바꿈이 이미 공백이 된 경우) → "Boughery"
+  // 하이픈 종류: - ‐ ‑, 소프트 하이픈(U+00AD), ¬ (OCR이 가끔 이렇게 읽음)
+  // 예외: "self- driving"처럼 원래 하이픈이 붙는 접두어는 하이픈을 남기고,
+  //       "pre- and post-war"처럼 뒤가 and/or 등이면 건드리지 않는다.
+  const BROKEN_WORD = /([A-Za-z]+)[-‐‑­¬]\s+([a-z]+)/g;
+  const KEEP_HYPHEN = /^(self|well|ex|non|half|all|cross)$/i;
+  const SUSPENDED = new Set(['and', 'or', 'nor', 'to', 'than']);
+
+  function fixHyphens(text) {
+    return text
+      .replace(/­(?=\S)/g, '') // 단어 중간의 보이지 않는 소프트 하이픈 제거
+      .replace(BROKEN_WORD, (m, left, right) => {
+        if (SUSPENDED.has(right)) return m;
+        return KEEP_HYPHEN.test(left) ? `${left}-${right}` : left + right;
+      });
   }
 
   // 머리글: 짧고, 숫자로 시작/끝나거나 전부 대문자이거나, 여러 페이지 첫 줄에 반복되는 줄
@@ -157,7 +172,7 @@ const OCR = (() => {
         }
       });
     }
-    return result.join('\n\n');
+    return result.map(fixHyphens).join('\n\n');
   }
 
   // ---------- 화면 ----------
