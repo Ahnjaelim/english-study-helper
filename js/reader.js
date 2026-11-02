@@ -384,33 +384,62 @@ const Reader = (() => {
     popup.hidden = false;
     positionPopup(rect, reader.scrollTop);
 
-    Translate.translate(text)
+    // 형광펜에 함께 저장할 한국어 뜻. 번역이 오기 전에 칠했으면 나중에 채워 넣는다.
+    const setKorean = out => {
+      popupTranslated = out;
+      const h = page?.highlights.find(h => h.text === text && !h.translation);
+      if (h) { h.translation = out; Library.savePage(page); }
+    };
+
+    const translated = Translate.translate(text)
       .then(out => {
-        if (my !== popupToken) return;
+        if (my !== popupToken) return null;
+        // 단어를 번역하지 못하고 그대로 돌려주면 숨기고 사전 결과에 맡긴다.
+        if (isWord && Translate.isUntranslated(text, out)) {
+          popupTranslation.textContent = '';
+          return null;
+        }
         popupTranslation.textContent = out;
-        popupTranslated = out;
-        // 번역이 오기 전에 칠했으면 나중에 번역을 채워 넣는다.
-        const h = page?.highlights.find(h => h.text === text && !h.translation);
-        if (h) { h.translation = out; Library.savePage(page); }
+        setKorean(out);
+        return out;
       })
-      .catch(err => { if (my === popupToken) setMessage(popupTranslation, '번역 실패: ' + err.message, 'error'); })
+      .catch(err => {
+        if (my === popupToken) setMessage(popupTranslation, '번역 실패: ' + err.message, 'error');
+        return null;
+      })
       .finally(() => { if (my === popupToken) positionPopup(rect); });
 
-    if (isWord) {
-      Translate.lookup(text)
-        .then(entry => {
-          if (my !== popupToken || !entry) return;
-          popupPhonetic.textContent = entry.phonetic;
-          renderDictionary(entry.meanings);
-          positionPopup(rect);
-        })
-        .catch(err => console.warn('사전 조회 실패:', err));
-    }
+    if (!isWord) return;
+
+    setMessage(popupDict, '사전 찾는 중…', 'loading');
+    Promise.all([
+      Translate.lookupKorean(text).catch(() => null),
+      Translate.lookup(text).catch(() => null),
+      translated,
+    ]).then(([ko, en, out]) => {
+      if (my !== popupToken) return;
+      popupDict.textContent = '';
+      if (en) popupPhonetic.textContent = en.phonetic;
+      if (ko) {
+        renderDictionary('📖 한영사전', ko, text);
+        if (!out) setKorean(ko.meanings[0].definitions[0]);
+      }
+      // 한영사전에 없으면 영영 뜻을 한국어로 번역해서 함께 보여준다.
+      if (en) renderDictionary('📘 영영사전', en, text, { translateDefs: !ko, onFirstKorean: out || ko ? null : setKorean });
+      if (!ko && !en && !out) setMessage(popupDict, '사전에서 뜻을 찾지 못했어요.', 'error');
+      positionPopup(rect);
+    });
   }
 
-  function renderDictionary(meanings) {
-    popupDict.textContent = '';
-    for (const m of meanings) {
+  function renderDictionary(title, entry, original, { translateDefs = false, onFirstKorean = null } = {}) {
+    const head = document.createElement('div');
+    head.className = 'dict-title';
+    head.textContent = title;
+    if (entry.word !== original.toLowerCase()) head.textContent += ` · 원형 ${entry.word}`;
+    popupDict.append(head);
+
+    let first = true;
+    for (const m of entry.meanings) {
       const pos = document.createElement('div');
       pos.className = 'pos';
       pos.textContent = m.partOfSpeech;
@@ -419,6 +448,19 @@ const Reader = (() => {
         const li = document.createElement('li');
         li.textContent = d;
         ol.append(li);
+        if (translateDefs) {
+          const ko = document.createElement('div');
+          ko.className = 'def-ko';
+          li.append(ko);
+          const isFirst = first;
+          Translate.translate(d)
+            .then(out => {
+              ko.textContent = out;
+              if (isFirst) onFirstKorean?.(out);
+            })
+            .catch(() => ko.remove());
+        }
+        first = false;
       }
       popupDict.append(pos, ol);
     }

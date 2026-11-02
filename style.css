@@ -303,3 +303,9 @@ a { color: inherit; }
 .ocr-dialog.edit-mode #ocr-new,
 .ocr-dialog.edit-mode #ocr-append { display: none !important; }
 .ocr-dialog.edit-mode .ocr-text { height: 60vh; }
+
+/* 사전 */
+.popup-translation:empty { display: none; }
+.popup-dict .dict-title { font-weight: 600; font-size: 13px; color: var(--muted); margin-top: 10px; }
+.popup-dict .dict-title:first-child { margin-top: 0; }
+.popup-dict .def-ko { color: var(--accent); font-size: 13px; }
