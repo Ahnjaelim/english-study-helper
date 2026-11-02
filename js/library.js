@@ -120,14 +120,39 @@ const LibraryView = (() => {
     const ul = $('highlight-list');
     ul.textContent = '';
     for (const { p, h } of items) {
+      const colorButtons = ['yellow', 'green', 'blue', 'pink'].map(c => {
+        const b = iconButton('', '이 색으로 바꾸기', () => updateHighlight(p, h, { color: c }));
+        b.className = 'hl-btn' + (c === h.color ? ' current' : '');
+        b.dataset.color = c;
+        return b;
+      });
       ul.append(el('li', { className: `hl-item hl-${h.color}` },
         el('a', { href: `#/f/${folder.id}/p/${p.id}/s/${h.start.s}` },
           el('div', { className: 'hl-text', textContent: h.text }),
           h.translation ? el('div', { className: 'hl-translation', textContent: h.translation }) : '',
           el('div', { className: 'hl-page', textContent: p.name }),
         ),
+        el('div', { className: 'hl-actions' },
+          ...colorButtons,
+          iconButton('✏️', '뜻·번역 수정', () => {
+            const t = prompt(`"${h.text.slice(0, 40)}"의 뜻/번역`, h.translation || '');
+            if (t != null) updateHighlight(p, h, { translation: t.trim() });
+          }),
+          iconButton('🗑', '형광펜 삭제', () => {
+            if (confirm(`이 형광펜을 삭제할까요?\n"${h.text.slice(0, 60)}"`)) updateHighlight(p, h, null);
+          }),
+        ),
       ));
     }
+  }
+
+  // changes가 null이면 삭제, 아니면 색/번역 수정
+  async function updateHighlight(page, h, changes) {
+    page.highlights = changes
+      ? page.highlights.map(x => (x.id === h.id ? { ...x, ...changes } : x))
+      : page.highlights.filter(x => x.id !== h.id);
+    await Library.savePage(page);
+    renderFolder(folder.id);
   }
 
   // 페이지 이름·본문 수정 창을 열고, 저장되면 after()로 화면을 갱신한다.
