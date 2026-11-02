@@ -33,11 +33,50 @@ const OCR = (() => {
     return canvas;
   }
 
-  async function recognize(file) {
+  async function recognizeTesseract(file) {
     const worker = await getWorker();
     const canvas = await preprocess(file);
     const { data } = await worker.recognize(canvas);
     return data.text;
+  }
+
+  // OCR.space 무료 키는 파일당 1MB 제한이 있어 JPEG로 줄여서 보낸다.
+  async function toJpegUnder(canvas, maxBytes) {
+    let c = canvas;
+    for (let quality = 0.85; ; quality -= 0.1) {
+      const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', Math.max(quality, 0.5)));
+      if (blob.size <= maxBytes) return blob;
+      if (quality <= 0.55) {
+        // 화질을 낮춰도 크면 크기를 줄인다.
+        const smaller = document.createElement('canvas');
+        smaller.width = Math.round(c.width * 0.8);
+        smaller.height = Math.round(c.height * 0.8);
+        smaller.getContext('2d').drawImage(c, 0, 0, smaller.width, smaller.height);
+        c = smaller;
+        quality = 0.95;
+      }
+    }
+  }
+
+  async function recognizeOcrSpace(file, apiKey) {
+    const canvas = await preprocess(file);
+    const blob = await toJpegUnder(canvas, 950 * 1024);
+    const form = new FormData();
+    form.append('apikey', apiKey);
+    form.append('file', blob, 'page.jpg');
+    form.append('language', 'eng');
+    form.append('OCREngine', '2');
+    form.append('scale', 'true');
+    form.append('detectOrientation', 'true');
+
+    const res = await fetch('https://api.ocr.space/parse/image', { method: 'POST', body: form });
+    if (!res.ok) throw new Error(`OCR.space HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.IsErroredOnProcessing || !data.ParsedResults?.length) {
+      const msg = [].concat(data.ErrorMessage || data.ErrorDetails || '인식 실패').join(' ');
+      throw new Error('OCR.space: ' + msg);
+    }
+    return data.ParsedResults.map(r => r.ParsedText).join('\n\n');
   }
 
   // ---------- 텍스트 정리 ----------
@@ -48,10 +87,19 @@ const OCR = (() => {
     return line.toLowerCase().replace(/[^a-z]/g, '');
   }
 
+  function median(nums) {
+    if (!nums.length) return 0;
+    const s = [...nums].sort((a, b) => a - b);
+    return s[Math.floor(s.length / 2)];
+  }
+
   // 한 페이지의 OCR 결과 → 문단 배열
+  // 빈 줄은 문단 구분. 빈 줄이 없는 텍스트(렌즈 복사 등)를 위해
+  // "문장부호로 끝나면서 보통 줄보다 눈에 띄게 짧은 줄"도 문단의 끝으로 본다.
   function pageToParagraphs(text) {
     let lines = text.replace(/\r\n?/g, '\n').split('\n').map(l => l.trim());
     lines = lines.filter(l => !PAGE_NUMBER.test(l));
+    const typical = median(lines.filter(l => l.length > 20).map(l => l.length));
 
     const paragraphs = [];
     let cur = '';
@@ -62,6 +110,10 @@ const OCR = (() => {
         continue;
       }
       cur = joinLine(cur, line);
+      if (typical && SENTENCE_END.test(line) && line.length < typical * 0.75) {
+        paragraphs.push(cur);
+        cur = '';
+      }
     }
     if (cur) paragraphs.push(cur);
     return paragraphs;
@@ -153,6 +205,7 @@ const OCR = (() => {
       const empty = !editor.value.trim();
       btnNew.disabled = empty;
       btnAppend.disabled = empty;
+      $('ocr-clean').disabled = empty;
     }
 
     input.addEventListener('change', () => {
@@ -165,7 +218,28 @@ const OCR = (() => {
       renderThumbs();
     });
 
+    // 엔진 선택 (기기 내 Tesseract / 온라인 OCR.space) — 키와 함께 기억해 둔다
+    const engineSelect = $('ocr-engine');
+    const keyInput = $('ocr-key');
+    const keyRow = $('ocr-key-row');
+    engineSelect.value = localStorage.getItem('esh.ocrEngine') || 'tesseract';
+    keyInput.value = localStorage.getItem('esh.ocrSpaceKey') || '';
+    const updateEngineUI = () => { keyRow.hidden = engineSelect.value !== 'ocrspace'; };
+    updateEngineUI();
+    engineSelect.addEventListener('change', () => {
+      localStorage.setItem('esh.ocrEngine', engineSelect.value);
+      updateEngineUI();
+    });
+    keyInput.addEventListener('change', () => localStorage.setItem('esh.ocrSpaceKey', keyInput.value.trim()));
+
     btnRun.addEventListener('click', async () => {
+      const engine = engineSelect.value;
+      const apiKey = keyInput.value.trim();
+      if (engine === 'ocrspace' && !apiKey) {
+        status.textContent = 'OCR.space API 키를 입력하세요.';
+        keyInput.focus();
+        return;
+      }
       running = true;
       renderThumbs();
       const texts = [];
@@ -180,7 +254,12 @@ const OCR = (() => {
       try {
         for (const f of files) {
           page++;
-          texts.push(await recognize(f.file));
+          if (engine === 'ocrspace') {
+            status.textContent = `인식 중… ${page}/${files.length}장 (OCR.space)`;
+            texts.push(await recognizeOcrSpace(f.file, apiKey));
+          } else {
+            texts.push(await recognizeTesseract(f.file));
+          }
         }
         const cleaned = cleanPages(texts);
         editor.value = editor.value.trim() ? editor.value.trim() + '\n\n' + cleaned : cleaned;
@@ -198,6 +277,14 @@ const OCR = (() => {
     });
 
     editor.addEventListener('input', updateResultButtons);
+
+    // 붙여넣은 텍스트(렌즈/라이브 텍스트 복사 등)에도 같은 정리를 적용한다.
+    $('ocr-clean').addEventListener('click', () => {
+      if (!editor.value.trim()) return;
+      editor.value = cleanPages([editor.value]);
+      status.textContent = '정리했어요: 하이픈 단어 붙이기, 줄바꿈 정리, 쪽번호 제거';
+      updateResultButtons();
+    });
 
     async function finish(mode) {
       const text = editor.value.trim();

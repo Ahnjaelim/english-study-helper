@@ -105,13 +105,27 @@
       </label>
       <span class="hint">페이지 순서대로 번호가 붙습니다. 평평하고 밝게 찍을수록 정확해요.</span>
       <div id="ocr-thumbs" class="ocr-thumbs"></div>
+      <div class="ocr-engine-row">
+        <label>인식 엔진
+          <select id="ocr-engine">
+            <option value="tesseract">Tesseract (기기 안에서, 키 불필요)</option>
+            <option value="ocrspace">OCR.space (온라인, 사진에 더 정확)</option>
+          </select>
+        </label>
+        <span id="ocr-key-row">
+          <input type="password" id="ocr-key" placeholder="OCR.space API 키" autocomplete="off">
+          <a href="https://ocr.space/ocrapi/freekey" target="_blank" rel="noopener">무료 키 받기</a>
+        </span>
+      </div>
       <button id="ocr-run" class="primary" disabled>인식 시작</button>
       <span id="ocr-status" class="ocr-status"></span>
     </section>
 
     <section class="ocr-step">
+      <p class="hint">💡 가장 정확한 방법: Google 렌즈(안드로이드)나 라이브 텍스트(아이폰)로 사진 속 글자를 복사해 아래에 붙여넣고 <b>✨ 정리하기</b>를 누르세요.</p>
       <textarea id="ocr-text" class="ocr-text" placeholder="사진 인식 결과가 여기에 표시됩니다. 직접 고치거나, 다른 곳에서 복사한 텍스트를 붙여넣어도 돼요." spellcheck="true"></textarea>
       <div class="ocr-actions">
+        <button id="ocr-clean" disabled title="하이픈 단어 붙이기, 줄바꿈 정리, 쪽번호 제거">✨ 정리하기</button>
         <label>페이지 이름 <input type="text" id="ocr-name"></label>
         <button id="ocr-append" disabled>지금 페이지 끝에 이어 붙이기</button>
         <button id="ocr-new" class="primary" disabled>새 페이지로 추가</button>
