@@ -96,13 +96,7 @@ const LibraryView = (() => {
         el('span', { className: 'page-no', textContent: i + 1 }),
         el('a', { className: 'page-name', href: `#/f/${folder.id}/p/${p.id}`, textContent: p.name }),
         el('span', { className: 'page-progress', textContent: pageProgress(p) }),
-        iconButton('✏️', '이름 바꾸기', async () => {
-          const name = prompt('페이지 이름', p.name)?.trim();
-          if (!name || name === p.name) return;
-          p.name = name;
-          await Library.savePage(p);
-          renderFolder(folder.id);
-        }),
+        iconButton('✏️', '이름·내용 수정', () => editPage(p, () => renderFolder(folder.id))),
         iconButton('↑', '위로', () => move(p.id, -1)),
         iconButton('↓', '아래로', () => move(p.id, 1)),
         iconButton('🗑', '삭제', async () => {
@@ -134,6 +128,20 @@ const LibraryView = (() => {
         ),
       ));
     }
+  }
+
+  // 페이지 이름·본문 수정 창을 열고, 저장되면 after()로 화면을 갱신한다.
+  function editPage(page, after) {
+    OCR.open({
+      mode: 'edit',
+      defaultName: page.name,
+      text: page.text,
+      async onSave(text, name) {
+        const lost = await Library.editPage(page, { name, text });
+        await after();
+        if (lost) alert(`고친 부분에 있던 형광펜 ${lost}개는 새 본문에서 찾을 수 없어 지워졌어요.`);
+      },
+    });
   }
 
   async function move(id, delta) {
@@ -239,5 +247,5 @@ const LibraryView = (() => {
     });
   }
 
-  return { renderLibrary, renderFolder };
+  return { renderLibrary, renderFolder, editPage };
 })();

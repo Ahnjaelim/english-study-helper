@@ -330,13 +330,53 @@ const OCR = (() => {
     btnAppend.addEventListener('click', () => finish('append'));
     $('ocr-close').addEventListener('click', () => dialog.close());
 
+    // 페이지 수정: 같은 창을 쓰되, 작성 중이던 OCR/붙여넣기 내용은 잠시 치워 뒀다가 닫을 때 되돌린다.
+    let editSession = null; // { onSave, draft }
+
+    $('ocr-save').addEventListener('click', async () => {
+      const text = editor.value.trim();
+      if (!text) { status.textContent = '본문이 비어 있어요.'; return; }
+      const { onSave } = editSession;
+      const name = nameInput.value.trim() || '이름 없는 페이지';
+      dialog.close();
+      await onSave(text, name);
+    });
+
+    dialog.addEventListener('close', () => {
+      if (!editSession) return;
+      editor.value = editSession.draft;
+      editSession = null;
+      dialog.classList.remove('edit-mode');
+      status.textContent = '';
+      updateResultButtons();
+    });
+
     // defaultName: 새 페이지 기본 이름, canAppend: 읽기 화면에서 열었을 때만 "이어 붙이기" 표시
     // mode: 'photo' (사진 OCR) | 'paste' (사진 영역 숨기고 클립보드 내용을 바로 채움)
-    openDialog = async ({ defaultName, canAppend, mode = 'photo' }) => {
+    //       | 'edit' (text를 고쳐서 onSave(text, name)로 돌려줌)
+    openDialog = async ({ defaultName, canAppend, mode = 'photo', text = '', onSave }) => {
       nameInput.value = defaultName;
       btnAppend.hidden = !canAppend;
       dialog.classList.toggle('paste-mode', mode === 'paste');
-      $('ocr-title').textContent = mode === 'paste' ? '📋 텍스트 붙여넣기로 페이지 추가' : '📷 사진 OCR로 페이지 추가';
+      dialog.classList.toggle('edit-mode', mode === 'edit');
+      $('ocr-title').textContent = {
+        photo: '📷 사진 OCR로 페이지 추가',
+        paste: '📋 텍스트 붙여넣기로 페이지 추가',
+        edit: '📝 페이지 수정',
+      }[mode];
+      status.textContent = '';
+
+      if (mode === 'edit') {
+        editSession = { onSave, draft: editor.value };
+        editor.value = text;
+        updateResultButtons();
+        dialog.showModal();
+        editor.focus();
+        editor.setSelectionRange(0, 0);
+        editor.scrollTop = 0;
+        return;
+      }
+
       renderThumbs();
       updateResultButtons();
       dialog.showModal();

@@ -117,6 +117,15 @@
     },
   });
 
+  $('btn-reader-edit').addEventListener('click', () => {
+    const page = Reader.page;
+    if (!page) return;
+    LibraryView.editPage(page, async () => {
+      Reader.open(page);
+      await route(); // 경로 표시줄의 페이지 이름 갱신
+    });
+  });
+
   for (const [id, mode] of [['btn-reader-ocr', 'photo'], ['btn-reader-paste', 'paste']]) {
     $(id).addEventListener('click', () => {
       OCR.open({ defaultName: `페이지 ${current.folder.pageIds.length + 1}`, canAppend: true, mode });

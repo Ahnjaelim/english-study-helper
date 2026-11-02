@@ -100,6 +100,64 @@ const Library = (() => {
     await savePage(page);
   }
 
+  // ---------- 페이지 수정 ----------
+  // 문장들을 공백 하나로 이은 문자열. 형광펜 text도 같은 방식(공백 정규화)으로 저장돼 있다.
+  function flatten(text) {
+    const sents = TextParser.parse(text).flat();
+    const starts = [];
+    let flat = '';
+    sents.forEach((s, i) => {
+      if (i) flat += ' ';
+      starts.push(flat.length);
+      flat += s;
+    });
+    return { sents, starts, flat };
+  }
+
+  function fromFlat(f, x) {
+    let s = f.starts.length - 1;
+    while (s > 0 && f.starts[s] > x) s--;
+    return { s, o: x - f.starts[s] };
+  }
+
+  // haystack에서 needle이 나오는 위치 중 near에 가장 가까운 곳 (없으면 -1)
+  function nearestIndexOf(haystack, needle, near) {
+    let best = -1;
+    for (let i = haystack.indexOf(needle); i !== -1; i = haystack.indexOf(needle, i + 1)) {
+      if (best < 0 || Math.abs(i - near) < Math.abs(best - near)) best = i;
+    }
+    return best;
+  }
+
+  // 본문/이름 수정. 형광펜과 읽던 위치는 같은 글을 새 본문에서 찾아 옮긴다.
+  // 반환값: 찾지 못해 빠진 형광펜 수
+  async function editPage(page, { name, text }) {
+    page.name = name;
+    if (text === page.text) {
+      await savePage(page);
+      return 0;
+    }
+
+    const a = flatten(page.text);
+    const b = flatten(text);
+    const highlights = [];
+    for (const h of page.highlights || []) {
+      const oldAt = (a.starts[h.start.s] ?? 0) + h.start.o;
+      const at = nearestIndexOf(b.flat, h.text, oldAt);
+      if (at < 0) continue;
+      highlights.push({ ...h, start: fromFlat(b, at), end: fromFlat(b, at + h.text.length) });
+    }
+    const lost = (page.highlights?.length || 0) - highlights.length;
+
+    const curSentence = a.sents[page.pos];
+    const posAt = curSentence ? nearestIndexOf(b.flat, curSentence, a.starts[page.pos]) : -1;
+    page.pos = posAt >= 0 ? fromFlat(b, posAt).s : Math.min(page.pos, Math.max(0, b.sents.length - 1));
+
+    page.highlights = highlights;
+    await setPageText(page, text);
+    return lost;
+  }
+
   async function deletePage(folder, pageId) {
     folder.pageIds = folder.pageIds.filter(id => id !== pageId);
     if (folder.lastPageId === pageId) folder.lastPageId = null;
@@ -127,7 +185,7 @@ const Library = (() => {
 
   return {
     listFolders, getFolder, createFolder, saveFolder, deleteFolder,
-    getPage, listPages, allPages, createPage, savePage, setPageText, deletePage,
+    getPage, listPages, allPages, createPage, savePage, setPageText, editPage, deletePage,
     migrateLegacy,
   };
 })();

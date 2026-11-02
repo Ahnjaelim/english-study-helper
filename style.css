@@ -295,3 +295,11 @@ a { color: inherit; }
   .page-no { width: 20px; }
   .ocr-dialog { padding: 12px; }
 }
+
+/* 페이지 수정 모드 */
+.ocr-dialog:not(.edit-mode) #ocr-save { display: none; }
+.ocr-dialog.edit-mode .ocr-photo,
+.ocr-dialog.edit-mode .ocr-paste-hint,
+.ocr-dialog.edit-mode #ocr-new,
+.ocr-dialog.edit-mode #ocr-append { display: none !important; }
+.ocr-dialog.edit-mode .ocr-text { height: 60vh; }

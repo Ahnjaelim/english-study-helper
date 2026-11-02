@@ -23,6 +23,7 @@
       </label>
 
       <select id="voice-select" title="음성 선택"></select>
+      <button id="btn-reader-edit" title="이 페이지 수정">📝</button>
       <button id="btn-reader-paste" title="붙여넣기로 이 페이지에 내용 추가">📋</button>
       <button id="btn-reader-ocr" title="사진 OCR로 이 페이지에 내용 추가">📷</button>
     </div>
@@ -124,13 +125,14 @@
 
     <section class="ocr-step">
       <div id="ocr-status" class="ocr-status"></div>
-      <p class="hint">💡 가장 정확한 방법: Google 렌즈(안드로이드)나 라이브 텍스트(아이폰)로 사진 속 글자를 복사해 아래에 붙여넣고 <b>✨ 정리하기</b>를 누르세요.</p>
+      <p class="hint ocr-paste-hint">💡 가장 정확한 방법: Google 렌즈(안드로이드)나 라이브 텍스트(아이폰)로 사진 속 글자를 복사해 아래에 붙여넣고 <b>✨ 정리하기</b>를 누르세요.</p>
       <textarea id="ocr-text" class="ocr-text" placeholder="사진 인식 결과가 여기에 표시됩니다. 직접 고치거나, 다른 곳에서 복사한 텍스트를 붙여넣어도 돼요." spellcheck="true"></textarea>
       <div class="ocr-actions">
         <button id="ocr-clean" disabled title="하이픈 단어 붙이기, 줄바꿈 정리, 쪽번호 제거">✨ 정리하기</button>
         <label>페이지 이름 <input type="text" id="ocr-name"></label>
         <button id="ocr-append" disabled>지금 페이지 끝에 이어 붙이기</button>
         <button id="ocr-new" class="primary" disabled>새 페이지로 추가</button>
+        <button id="ocr-save" class="primary">저장</button>
       </div>
     </section>
   </dialog>
