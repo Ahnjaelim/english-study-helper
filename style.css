@@ -262,3 +262,36 @@ a { color: inherit; }
 .ocr-engine-row select, .ocr-engine-row input { font: inherit; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; }
 .ocr-engine-row a { color: var(--accent); font-size: 13px; }
 .ocr-step p.hint { margin: 0 0 6px; }
+
+/* 터치 기기: 번역 팝업을 화면 아래 시트로 */
+.popup.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  max-height: 45vh;
+  border-radius: 14px 14px 0 0;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.18);
+}
+.popup.sheet .hl-btn { width: 30px; height: 30px; }
+
+/* 마우스 오버가 없는 기기에서는 카드 버튼을 항상 표시 */
+@media (hover: none) {
+  .card-actions { display: flex; }
+}
+
+/* 좁은 화면 */
+@media (max-width: 640px) {
+  .toolbar { padding: 6px 10px; gap: 8px; }
+  .breadcrumb { flex-basis: 100%; }
+  .reader-tools { gap: 8px; }
+  .rate input { width: 80px; }
+  #voice-select { max-width: 150px; }
+  .content { padding: 20px 16px 120px; font-size: 19px; }
+  #library-view, #folder-view { padding: 16px; }
+  .page-row { gap: 4px; padding: 8px 6px; }
+  .page-no { width: 20px; }
+  .ocr-dialog { padding: 12px; }
+}

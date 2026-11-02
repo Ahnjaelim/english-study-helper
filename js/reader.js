@@ -242,9 +242,10 @@ const Reader = (() => {
   // 문장 클릭 → 그 문장부터 읽기.
   // 더블클릭(단어 선택)과 구분하기 위해 잠깐 기다렸다가 선택 영역이 없을 때만 처리한다.
   let clickTimer = null;
+  let suppressClick = false; // 팝업을 닫으려고 누른 클릭은 읽기 시작으로 처리하지 않는다
   content.addEventListener('click', e => {
     const span = e.target.closest('.sentence');
-    if (!span) return;
+    if (!span || suppressClick) return;
     clearTimeout(clickTimer);
     if (e.detail > 1) return;
     clickTimer = setTimeout(() => {
@@ -312,17 +313,35 @@ const Reader = (() => {
   let popupToken = 0;
   let popupText = '';
 
-  content.addEventListener('mouseup', () => {
-    // 드래그가 끝나고 선택 영역이 확정된 뒤에 읽는다.
-    setTimeout(() => {
-      const sel = window.getSelection();
-      if (sel.isCollapsed || !sel.rangeCount) return;
-      const range = sel.getRangeAt(0);
-      if (!content.contains(range.commonAncestorContainer)) return;
-      const text = sel.toString().replace(/\s+/g, ' ').trim();
-      if (!text || !/[A-Za-z]/.test(text)) return;
-      showPopup(text.slice(0, MAX_SELECTION), range.getBoundingClientRect(), rangeToSpan(range));
-    }, 0);
+  // 폰/태블릿: 팝업을 화면 아래 시트로 띄운다 (브라우저 기본 선택 메뉴와 겹치지 않게).
+  const sheetMode = matchMedia('(pointer: coarse)');
+  let lastPointer = 'mouse';
+  let selKey = '';
+
+  function handleSelection() {
+    const sel = window.getSelection();
+    if (sel.isCollapsed || !sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    if (!content.contains(range.commonAncestorContainer)) return;
+    const text = sel.toString().replace(/\s+/g, ' ').trim();
+    if (!text || !/[A-Za-z]/.test(text)) return;
+    const span = rangeToSpan(range);
+    // 선택 핸들을 움직이는 동안 같은 선택으로 여러 번 불리므로 바뀌었을 때만 다시 띄운다.
+    const key = text + JSON.stringify(span);
+    if (!popup.hidden && key === selKey) return;
+    selKey = key;
+    showPopup(text.slice(0, MAX_SELECTION), range.getBoundingClientRect(), span);
+  }
+
+  // 마우스: 드래그가 끝나고 선택 영역이 확정된 뒤에 읽는다.
+  content.addEventListener('mouseup', () => setTimeout(handleSelection, 0));
+
+  // 터치: 길게 눌러 선택하면 mouseup이 오지 않으므로 선택 변경을 감지한다.
+  let selTimer = null;
+  document.addEventListener('selectionchange', () => {
+    if (lastPointer === 'mouse' || !page || reader.hidden) return;
+    clearTimeout(selTimer);
+    selTimer = setTimeout(handleSelection, 350);
   });
 
   const popupTools = popup.querySelector('.popup-tools');
@@ -417,6 +436,8 @@ const Reader = (() => {
   // rect는 선택 시점의 화면 좌표이므로 그 시점의 scrollTop을 함께 기억해 reader 내부 좌표로 바꾼다.
   function positionPopup(rect, scrollTop = popup._scrollTop) {
     popup._scrollTop = scrollTop;
+    popup.classList.toggle('sheet', sheetMode.matches);
+    if (sheetMode.matches) { popup.style.left = popup.style.top = ''; return; }
     const margin = 8;
     const v = reader.getBoundingClientRect();
     const w = popup.offsetWidth;
@@ -441,8 +462,10 @@ const Reader = (() => {
     TTS.speak(popupText);
   });
 
-  document.addEventListener('mousedown', e => {
-    if (!popup.hidden && !popup.contains(e.target)) hidePopup();
+  document.addEventListener('pointerdown', e => {
+    lastPointer = e.pointerType;
+    suppressClick = !popup.hidden && !popup.contains(e.target);
+    if (suppressClick) hidePopup();
   });
 
   return {
