@@ -137,7 +137,9 @@ button:hover, .file-btn:hover { border-color: var(--accent); }
   font-size: 12px; padding: 0 6px; border-radius: 8px;
 }
 .ocr-thumb button { position: absolute; right: 2px; top: 2px; padding: 0 5px; font-size: 12px; }
-.ocr-status { margin-left: 10px; font-size: 14px; color: var(--muted); }
+.ocr-status { font-size: 14px; color: var(--accent); margin-bottom: 6px; }
+.ocr-status:empty { display: none; }
+.ocr-dialog.paste-mode .ocr-photo { display: none; }
 .ocr-text {
   width: 100%;
   height: 38vh;

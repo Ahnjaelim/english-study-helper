@@ -233,9 +233,11 @@ const LibraryView = (() => {
     location.hash = `#/f/${folder.id}/p/${target.id}`;
   });
 
-  $('btn-folder-ocr').addEventListener('click', () => {
-    OCR.open({ defaultName: `페이지 ${folder.pageIds.length + 1}`, canAppend: false });
-  });
+  for (const [id, mode] of [['btn-folder-ocr', 'photo'], ['btn-folder-paste', 'paste']]) {
+    $(id).addEventListener('click', () => {
+      OCR.open({ defaultName: `페이지 ${folder.pageIds.length + 1}`, canAppend: false, mode });
+    });
+  }
 
   return { renderLibrary, renderFolder };
 })();

@@ -278,6 +278,22 @@ const OCR = (() => {
 
     editor.addEventListener('input', updateResultButtons);
 
+    // 붙여넣을 때 바로 정리해서 넣는다 (커서 위치에 삽입).
+    function insertCleaned(raw) {
+      const cleaned = cleanPages([raw]);
+      if (!cleaned) return;
+      editor.setRangeText(cleaned, editor.selectionStart, editor.selectionEnd, 'end');
+      updateResultButtons();
+      status.textContent = '붙여넣은 텍스트를 정리했어요. 확인 후 페이지로 추가하세요.';
+    }
+
+    editor.addEventListener('paste', e => {
+      const raw = e.clipboardData?.getData('text/plain');
+      if (!raw) return;
+      e.preventDefault();
+      insertCleaned(raw);
+    });
+
     // 붙여넣은 텍스트(렌즈/라이브 텍스트 복사 등)에도 같은 정리를 적용한다.
     $('ocr-clean').addEventListener('click', () => {
       if (!editor.value.trim()) return;
@@ -300,12 +316,26 @@ const OCR = (() => {
     $('ocr-close').addEventListener('click', () => dialog.close());
 
     // defaultName: 새 페이지 기본 이름, canAppend: 읽기 화면에서 열었을 때만 "이어 붙이기" 표시
-    openDialog = ({ defaultName, canAppend }) => {
+    // mode: 'photo' (사진 OCR) | 'paste' (사진 영역 숨기고 클립보드 내용을 바로 채움)
+    openDialog = async ({ defaultName, canAppend, mode = 'photo' }) => {
       nameInput.value = defaultName;
       btnAppend.hidden = !canAppend;
+      dialog.classList.toggle('paste-mode', mode === 'paste');
+      $('ocr-title').textContent = mode === 'paste' ? '📋 텍스트 붙여넣기로 페이지 추가' : '📷 사진 OCR로 페이지 추가';
       renderThumbs();
       updateResultButtons();
       dialog.showModal();
+
+      if (mode !== 'paste') return;
+      editor.focus();
+      // 클립보드를 읽을 수 있으면 바로 채운다 (권한이 없으면 직접 붙여넣기).
+      if (editor.value.trim() || !navigator.clipboard?.readText) return;
+      try {
+        const raw = await navigator.clipboard.readText();
+        if (raw.trim()) insertCleaned(raw);
+      } catch {
+        status.textContent = '입력창을 길게 누르거나 Ctrl+V로 붙여넣으세요.';
+      }
     };
   }
 

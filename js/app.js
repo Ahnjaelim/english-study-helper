@@ -117,9 +117,11 @@
     },
   });
 
-  $('btn-reader-ocr').addEventListener('click', () => {
-    OCR.open({ defaultName: `페이지 ${current.folder.pageIds.length + 1}`, canAppend: true });
-  });
+  for (const [id, mode] of [['btn-reader-ocr', 'photo'], ['btn-reader-paste', 'paste']]) {
+    $(id).addEventListener('click', () => {
+      OCR.open({ defaultName: `페이지 ${current.folder.pageIds.length + 1}`, canAppend: true, mode });
+    });
+  }
 
   Translate.init(msg => { $('translator-status').textContent = msg; });
 

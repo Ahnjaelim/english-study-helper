@@ -23,7 +23,8 @@
       </label>
 
       <select id="voice-select" title="음성 선택"></select>
-      <button id="btn-reader-ocr" title="사진/붙여넣기로 이 페이지에 내용 추가">📷</button>
+      <button id="btn-reader-paste" title="붙여넣기로 이 페이지에 내용 추가">📋</button>
+      <button id="btn-reader-ocr" title="사진 OCR로 이 페이지에 내용 추가">📷</button>
     </div>
   </header>
 
@@ -50,7 +51,8 @@
         ＋ txt 파일 추가
         <input type="file" id="file-input" accept=".txt,text/plain" multiple hidden>
       </label>
-      <button id="btn-folder-ocr">＋ 사진 OCR / 붙여넣기</button>
+      <button id="btn-folder-paste">📋 붙여넣기</button>
+      <button id="btn-folder-ocr">📷 사진 OCR</button>
       <span class="hint">txt 파일을 여기에 끌어다 놓아도 됩니다 · 행을 끌어서 순서 변경</span>
     </div>
     <ol id="page-list" class="page-list"></ol>
@@ -94,11 +96,11 @@
 
   <dialog id="ocr-dialog" class="ocr-dialog">
     <div class="ocr-head">
-      <h2>📷 페이지 추가 · 사진 OCR / 텍스트 붙여넣기</h2>
+      <h2 id="ocr-title">📷 사진 OCR로 페이지 추가</h2>
       <button id="ocr-close" title="닫기">✕</button>
     </div>
 
-    <section class="ocr-step">
+    <section class="ocr-step ocr-photo">
       <label class="file-btn">
         사진 추가 (여러 장 가능)
         <input type="file" id="ocr-input" accept="image/*" multiple hidden>
@@ -118,10 +120,10 @@
         </span>
       </div>
       <button id="ocr-run" class="primary" disabled>인식 시작</button>
-      <span id="ocr-status" class="ocr-status"></span>
     </section>
 
     <section class="ocr-step">
+      <div id="ocr-status" class="ocr-status"></div>
       <p class="hint">💡 가장 정확한 방법: Google 렌즈(안드로이드)나 라이브 텍스트(아이폰)로 사진 속 글자를 복사해 아래에 붙여넣고 <b>✨ 정리하기</b>를 누르세요.</p>
       <textarea id="ocr-text" class="ocr-text" placeholder="사진 인식 결과가 여기에 표시됩니다. 직접 고치거나, 다른 곳에서 복사한 텍스트를 붙여넣어도 돼요." spellcheck="true"></textarea>
       <div class="ocr-actions">
