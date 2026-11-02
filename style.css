@@ -10,6 +10,7 @@
   --hl-blue: #b3e5fc;
   --hl-pink: #f8c4dc;
   --panel: #ffffff;
+  --sheet-h: min(36vh, 340px);
   --border: #e3e0d8;
 }
 
@@ -270,12 +271,26 @@ a { color: inherit; }
   right: 0;
   bottom: 0;
   width: auto;
-  max-height: 45vh;
+  height: var(--sheet-h);
+  max-height: none;
+  overscroll-behavior: contain;
   border-radius: 14px 14px 0 0;
+  padding-top: 0;
   padding-bottom: calc(12px + env(safe-area-inset-bottom));
   box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.18);
 }
 .popup.sheet .hl-btn { width: 30px; height: 30px; }
+/* 스크롤해도 형광펜 버튼 줄은 위에 고정 */
+.popup.sheet .popup-tools {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--panel);
+  padding-top: 12px;
+}
+.popup.sheet .popup-tools[hidden] + .popup-head { padding-top: 12px; }
+/* 시트가 떠 있어도 본문 끝까지 스크롤할 수 있게 */
+.reader.sheet-open .content { padding-bottom: calc(var(--sheet-h) + 40px); }
 
 /* 마우스 오버가 없는 기기에서는 카드 버튼을 항상 표시 */
 @media (hover: none) {

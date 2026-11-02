@@ -382,6 +382,7 @@ const Reader = (() => {
     popupDict.textContent = '';
     setMessage(popupTranslation, '번역 중…', 'loading');
     popup.hidden = false;
+    popup.scrollTop = 0;
     positionPopup(rect, reader.scrollTop);
 
     // 형광펜에 함께 저장할 한국어 뜻. 번역이 오기 전에 칠했으면 나중에 채워 넣는다.
@@ -476,10 +477,20 @@ const Reader = (() => {
 
   // 팝업은 reader(스크롤 영역) 안에 absolute로 붙어 있어서 스크롤해도 선택 위치를 따라간다.
   // rect는 선택 시점의 화면 좌표이므로 그 시점의 scrollTop을 함께 기억해 reader 내부 좌표로 바꾼다.
-  function positionPopup(rect, scrollTop = popup._scrollTop) {
-    popup._scrollTop = scrollTop;
+  // scrollTop을 넘기는 건 처음 띄울 때뿐이고, 번역/사전 결과가 올 때는 생략해서 다시 맞추기만 한다.
+  function positionPopup(rect, scrollTop) {
+    const initial = scrollTop !== undefined;
+    if (initial) popup._scrollTop = scrollTop;
+    else scrollTop = popup._scrollTop;
     popup.classList.toggle('sheet', sheetMode.matches);
-    if (sheetMode.matches) { popup.style.left = popup.style.top = ''; return; }
+    reader.classList.toggle('sheet-open', sheetMode.matches);
+    if (sheetMode.matches) {
+      popup.style.left = popup.style.top = '';
+      // 선택한 글자가 시트 뒤에 가려지면 본문을 올려서 보이게 한다.
+      const sheetTop = window.innerHeight - popup.offsetHeight;
+      if (initial && rect.bottom > sheetTop - 12) reader.scrollBy({ top: rect.bottom - sheetTop + 48, behavior: 'smooth' });
+      return;
+    }
     const margin = 8;
     const v = reader.getBoundingClientRect();
     const w = popup.offsetWidth;
@@ -497,6 +508,7 @@ const Reader = (() => {
   function hidePopup() {
     popupToken++;
     popup.hidden = true;
+    reader.classList.remove('sheet-open');
   }
 
   $('popup-speak').addEventListener('click', () => {
