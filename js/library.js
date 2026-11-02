@@ -134,10 +134,7 @@ const LibraryView = (() => {
         ),
         el('div', { className: 'hl-actions' },
           ...colorButtons,
-          iconButton('✏️', '뜻·번역 수정', () => {
-            const t = prompt(`"${h.text.slice(0, 40)}"의 뜻/번역`, h.translation || '');
-            if (t != null) updateHighlight(p, h, { translation: t.trim() });
-          }),
+          iconButton('✏️', '뜻·번역 수정', () => openHighlightEditor(p, h)),
           iconButton('🗑', '형광펜 삭제', () => {
             if (confirm(`이 형광펜을 삭제할까요?\n"${h.text.slice(0, 60)}"`)) updateHighlight(p, h, null);
           }),
@@ -145,6 +142,39 @@ const LibraryView = (() => {
       ));
     }
   }
+
+  // 형광펜 뜻 수정 창: 사전을 함께 보여주고, 뜻을 누르면 입력칸에 넣는다.
+  const hlDialog = $('hl-dialog');
+  const hlMeaning = $('hl-meaning');
+  let hlEditing = null; // { page, h }
+  let hlToken = 0;
+
+  function openHighlightEditor(page, h) {
+    hlEditing = { page, h };
+    const my = ++hlToken;
+    $('hl-source').textContent = h.text;
+    hlMeaning.value = h.translation || '';
+    DictView.show(h.text, { translation: $('hl-translation'), phonetic: $('hl-phonetic'), dict: $('hl-dict') }, {
+      isCurrent: () => my === hlToken && hlDialog.open,
+      onPick: meaning => {
+        const cur = hlMeaning.value.trim();
+        const parts = cur ? cur.split(/\s*,\s*/) : [];
+        if (!parts.includes(meaning)) hlMeaning.value = cur ? `${cur}, ${meaning}` : meaning;
+        hlMeaning.focus();
+      },
+    });
+    hlDialog.showModal();
+  }
+
+  $('hl-save').addEventListener('click', () => {
+    if (!hlEditing) return;
+    const { page, h } = hlEditing;
+    hlDialog.close();
+    updateHighlight(page, h, { translation: hlMeaning.value.trim() });
+  });
+  $('hl-cancel').addEventListener('click', () => hlDialog.close());
+  $('hl-close').addEventListener('click', () => hlDialog.close());
+  hlDialog.addEventListener('close', () => { hlEditing = null; hlToken++; });
 
   // changes가 null이면 삭제, 아니면 색/번역 수정
   async function updateHighlight(page, h, changes) {

@@ -187,7 +187,7 @@ const Reader = (() => {
   async function koreanFor(text) {
     const out = await Translate.translate(text).catch(() => null);
     if (out && !Translate.isUntranslated(text, out)) return out;
-    if (!SINGLE_WORD.test(text)) return null;
+    if (!DictView.SINGLE_WORD.test(text)) return null;
     const ko = await Translate.lookupKorean(text).catch(() => null);
     if (ko) return ko.meanings[0].definitions[0];
     const en = await Translate.lookup(text).catch(() => null);
@@ -418,7 +418,6 @@ const Reader = (() => {
   const popupPhonetic = $('popup-phonetic');
   const popupTranslation = $('popup-translation');
   const popupDict = $('popup-dict');
-  const SINGLE_WORD = /^[A-Za-z]+(?:['’-][A-Za-z]+)*$/;
   const MAX_SELECTION = 1500;
   let popupToken = 0;
   let popupText = '';
@@ -485,15 +484,10 @@ const Reader = (() => {
     popupTranslated = '';
     popupTools.hidden = !span;
     updateEraseButton();
-    const isWord = SINGLE_WORD.test(text);
 
     popupSource.textContent = text;
-    popupPhonetic.textContent = '';
-    popupDict.textContent = '';
-    setMessage(popupTranslation, '번역 중…', 'loading');
     popup.hidden = false;
     popup.scrollTop = 0;
-    positionPopup(rect, reader.scrollTop);
 
     // 형광펜에 함께 저장할 한국어 뜻. 번역이 오기 전에 칠했으면 나중에 채워 넣는다.
     const setKorean = out => {
@@ -502,90 +496,12 @@ const Reader = (() => {
       if (h) { h.translation = out; Library.savePage(page); renderNotes(); }
     };
 
-    const translated = Translate.translate(text)
-      .then(out => {
-        if (my !== popupToken) return null;
-        // 단어를 번역하지 못하고 그대로 돌려주면 숨기고 사전 결과에 맡긴다.
-        if (isWord && Translate.isUntranslated(text, out)) {
-          popupTranslation.textContent = '';
-          return null;
-        }
-        popupTranslation.textContent = out;
-        setKorean(out);
-        return out;
-      })
-      .catch(err => {
-        if (my === popupToken) setMessage(popupTranslation, '번역 실패: ' + err.message, 'error');
-        return null;
-      })
-      .finally(() => { if (my === popupToken) positionPopup(rect); });
-
-    if (!isWord) return;
-
-    setMessage(popupDict, '사전 찾는 중…', 'loading');
-    Promise.all([
-      Translate.lookupKorean(text).catch(() => null),
-      Translate.lookup(text).catch(() => null),
-      translated,
-    ]).then(([ko, en, out]) => {
-      if (my !== popupToken) return;
-      popupDict.textContent = '';
-      if (en) popupPhonetic.textContent = en.phonetic;
-      if (ko) {
-        renderDictionary('📖 한영사전', ko, text);
-        if (!out) setKorean(ko.meanings[0].definitions[0]);
-      }
-      // 한영사전에 없으면 영영 뜻을 한국어로 번역해서 함께 보여준다.
-      if (en) renderDictionary('📘 영영사전', en, text, { translateDefs: !ko, onFirstKorean: out || ko ? null : setKorean });
-      if (!ko && !en && !out) setMessage(popupDict, '사전에서 뜻을 찾지 못했어요.', 'error');
-      positionPopup(rect);
+    DictView.show(text, { translation: popupTranslation, phonetic: popupPhonetic, dict: popupDict }, {
+      isCurrent: () => my === popupToken,
+      onKorean: setKorean,
+      onUpdate: () => positionPopup(rect),
     });
-  }
-
-  function renderDictionary(title, entry, original, { translateDefs = false, onFirstKorean = null } = {}) {
-    const head = document.createElement('div');
-    head.className = 'dict-title';
-    head.textContent = title;
-    if (entry.word !== original.toLowerCase()) head.textContent += ` · 원형 ${entry.word}`;
-    popupDict.append(head);
-
-    // 번역 사용량(MyMemory 하루 제한)을 아끼려고 영영 뜻은 앞의 2개만 번역한다.
-    const MAX_TRANSLATED_DEFS = 2;
-    let translatedCount = 0;
-    let first = true;
-    for (const m of entry.meanings) {
-      const pos = document.createElement('div');
-      pos.className = 'pos';
-      pos.textContent = m.partOfSpeech;
-      const ol = document.createElement('ol');
-      for (const d of m.definitions) {
-        const li = document.createElement('li');
-        li.textContent = d;
-        ol.append(li);
-        if (translateDefs && translatedCount++ < MAX_TRANSLATED_DEFS) {
-          const ko = document.createElement('div');
-          ko.className = 'def-ko';
-          li.append(ko);
-          const isFirst = first;
-          Translate.translate(d)
-            .then(out => {
-              ko.textContent = out;
-              if (isFirst) onFirstKorean?.(out);
-            })
-            .catch(() => ko.remove());
-        }
-        first = false;
-      }
-      popupDict.append(pos, ol);
-    }
-  }
-
-  function setMessage(el, text, cls) {
-    el.textContent = '';
-    const span = document.createElement('span');
-    span.className = cls;
-    span.textContent = text;
-    el.append(span);
+    positionPopup(rect, reader.scrollTop);
   }
 
   // 팝업은 reader(스크롤 영역) 안에 absolute로 붙어 있어서 스크롤해도 선택 위치를 따라간다.

@@ -372,3 +372,39 @@ button.toggle:not(.active) { opacity: 0.45; }
   .hl-actions { padding: 0 10px 8px; justify-content: flex-end; }
   .hl-actions .hl-btn { width: 24px; height: 24px; }
 }
+
+/* 형광펜 뜻 수정 창 */
+.hl-dialog {
+  width: min(560px, 94vw);
+  max-height: 90vh;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  background: var(--panel);
+  color: var(--fg);
+}
+.hl-dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
+.hl-source { margin: 12px 0 8px; font: 17px/1.5 Georgia, serif; font-weight: 600; }
+.hl-dict-box {
+  max-height: 40vh;
+  overflow-y: auto;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.hl-dict-box .popup-translation { margin-top: 0; }
+.hl-dialog .hint { margin: 8px 0 4px; }
+.hl-meaning {
+  width: 100%;
+  font: 15px/1.5 "Segoe UI", "Malgun Gothic", sans-serif;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  resize: vertical;
+}
+.ocr-actions .spacer { flex: 1; }
+.pickable { cursor: pointer; border-radius: 4px; }
+.pickable:hover { background: rgba(59, 111, 216, 0.08); }
+.popup-dict li.pickable { padding: 1px 4px; margin-left: -4px; }

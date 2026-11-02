@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>English Reading Helper</title>
-  <link rel="stylesheet" href="style.css?v=202611030353">
+  <link rel="stylesheet" href="style.css?v=202611030359">
 </head>
 <body>
   <header class="toolbar">
@@ -138,14 +138,35 @@
     </section>
   </dialog>
 
+  <dialog id="hl-dialog" class="hl-dialog">
+    <div class="ocr-head">
+      <h2>✏️ 형광펜 뜻 수정</h2>
+      <button id="hl-close" title="닫기">✕</button>
+    </div>
+    <div id="hl-source" class="hl-source"></div>
+    <div class="hl-dict-box">
+      <div id="hl-phonetic" class="popup-phonetic"></div>
+      <div id="hl-translation" class="popup-translation"></div>
+      <div id="hl-dict" class="popup-dict"></div>
+    </div>
+    <p class="hint">번역이나 사전의 뜻을 누르면 아래 칸에 들어가요. 여러 개를 고르면 쉼표로 이어져요.</p>
+    <textarea id="hl-meaning" class="hl-meaning" rows="2" placeholder="주석으로 보일 뜻/번역"></textarea>
+    <div class="ocr-actions">
+      <span class="spacer"></span>
+      <button id="hl-cancel">취소</button>
+      <button id="hl-save" class="primary">저장</button>
+    </div>
+  </dialog>
+
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
-  <script src="js/text.js?v=202611030353"></script>
-  <script src="js/db.js?v=202611030353"></script>
-  <script src="js/tts.js?v=202611030353"></script>
-  <script src="js/translate.js?v=202611030353"></script>
-  <script src="js/ocr.js?v=202611030353"></script>
-  <script src="js/reader.js?v=202611030353"></script>
-  <script src="js/library.js?v=202611030353"></script>
-  <script src="js/app.js?v=202611030353"></script>
+  <script src="js/text.js?v=202611030359"></script>
+  <script src="js/db.js?v=202611030359"></script>
+  <script src="js/tts.js?v=202611030359"></script>
+  <script src="js/translate.js?v=202611030359"></script>
+  <script src="js/dict-view.js?v=202611030359"></script>
+  <script src="js/ocr.js?v=202611030359"></script>
+  <script src="js/reader.js?v=202611030359"></script>
+  <script src="js/library.js?v=202611030359"></script>
+  <script src="js/app.js?v=202611030359"></script>
 </body>
 </html>
