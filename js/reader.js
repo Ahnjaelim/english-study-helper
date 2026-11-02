@@ -88,19 +88,119 @@ const Reader = (() => {
     for (const c of HL_COLORS) CSS.highlights.delete('hl-' + c);
   }
 
+  function highlightRange(h) {
+    const a = sentences[h.start.s]?.el.firstChild;
+    const b = sentences[h.end.s]?.el.firstChild;
+    if (!a || !b) return null;
+    const range = new Range();
+    range.setStart(a, Math.min(h.start.o, a.length));
+    range.setEnd(b, Math.min(h.end.o, b.length));
+    return range;
+  }
+
   function renderHighlights() {
-    if (!('highlights' in CSS)) return;
-    const byColor = Object.fromEntries(HL_COLORS.map(c => [c, []]));
-    for (const h of page.highlights) {
-      const a = sentences[h.start.s]?.el.firstChild;
-      const b = sentences[h.end.s]?.el.firstChild;
-      if (!a || !b) continue;
-      const range = new Range();
-      range.setStart(a, Math.min(h.start.o, a.length));
-      range.setEnd(b, Math.min(h.end.o, b.length));
-      byColor[h.color]?.push(range);
+    if ('highlights' in CSS) {
+      const byColor = Object.fromEntries(HL_COLORS.map(c => [c, []]));
+      for (const h of page.highlights) {
+        const range = highlightRange(h);
+        if (range) byColor[h.color]?.push(range);
+      }
+      for (const c of HL_COLORS) CSS.highlights.set('hl-' + c, new Highlight(...byColor[c]));
     }
-    for (const c of HL_COLORS) CSS.highlights.set('hl-' + c, new Highlight(...byColor[c]));
+    renderNotes();
+  }
+
+  // 선택 범위의 원문 (문장 사이는 공백 하나). 화면의 주석 글자가 섞이지 않게 문장 데이터에서 만든다.
+  function spanText(span) {
+    const parts = [];
+    for (let s = span.start.s; s <= span.end.s; s++) {
+      const t = sentences[s].text;
+      parts.push(t.slice(s === span.start.s ? span.start.o : 0, s === span.end.s ? span.end.o : t.length));
+    }
+    return parts.join(' ').replace(/\s+/g, ' ').trim();
+  }
+
+  // ---------- 형광펜 주석 ----------
+  // 짧은 형광펜(3단어 이하): 단어 바로 아래에 작은 글씨로 뜻 (본문 위에 겹쳐 그리는 층)
+  // 긴 형광펜: 그 문장 뒤에 주석 줄 (문장 span 바깥에 넣어서 형광펜 위치 계산에 영향 없음)
+  let glossLayer = null;
+  let notesOn = true; // 설정에서 덮어씀
+  const fetchingNote = new Set();
+
+  const isShortHighlight = h => h.text.trim().split(/\s+/).length <= 3;
+
+  function renderNotes() {
+    content.querySelectorAll('.hl-note').forEach(n => n.remove());
+    if (!glossLayer || !glossLayer.isConnected) {
+      glossLayer = document.createElement('div');
+      glossLayer.className = 'gloss-layer';
+      content.append(glossLayer);
+    }
+    glossLayer.textContent = '';
+    const show = notesOn && page?.highlights.length;
+    content.classList.toggle('with-gloss', !!(show && page.highlights.some(isShortHighlight)));
+    if (!show) return;
+
+    for (const h of page.highlights) {
+      if (!h.translation) { fillTranslation(h); continue; }
+      if (isShortHighlight(h)) continue;
+      const anchor = sentences[h.end.s]?.el;
+      if (!anchor) continue;
+      const note = document.createElement('span');
+      note.className = `hl-note hl-note-${h.color}`;
+      note.textContent = h.translation;
+      // 같은 문장 뒤에 주석이 여러 개면 순서대로 쌓는다.
+      let after = anchor;
+      while (after.nextElementSibling?.classList.contains('hl-note')) after = after.nextElementSibling;
+      after.after(note);
+    }
+    positionGlosses();
+  }
+
+  // 단어 아래 뜻의 위치는 화면 크기에 따라 바뀌므로 따로 계산한다.
+  function positionGlosses() {
+    if (!glossLayer || !page || !notesOn) return;
+    glossLayer.textContent = '';
+    const base = content.getBoundingClientRect();
+    for (const h of page.highlights) {
+      if (!h.translation || !isShortHighlight(h)) continue;
+      const rects = highlightRange(h)?.getClientRects();
+      const r = rects?.[rects.length - 1];
+      if (!r) continue;
+      const g = document.createElement('div');
+      g.className = `hl-gloss hl-gloss-${h.color}`;
+      g.textContent = h.translation;
+      g.style.left = r.left - base.left + r.width / 2 + 'px';
+      g.style.top = r.bottom - base.top - 2 + 'px';
+      glossLayer.append(g);
+    }
+  }
+
+  let glossTimer = null;
+  new ResizeObserver(() => {
+    clearTimeout(glossTimer);
+    glossTimer = setTimeout(positionGlosses, 100);
+  }).observe(content);
+
+  // 번역 없이 저장된 형광펜(번역 전에 팝업을 닫은 경우 등)은 표시할 때 채운다.
+  function fillTranslation(h) {
+    if (fetchingNote.has(h.id)) return;
+    fetchingNote.add(h.id);
+    const p = page;
+    Translate.translate(h.text)
+      .then(out => {
+        if (Translate.isUntranslated(h.text, out)) return;
+        h.translation = out;
+        Library.savePage(p);
+        if (page === p) renderNotes();
+      })
+      .catch(() => {});
+  }
+
+  function setNotesOn(on) {
+    notesOn = on;
+    $('btn-notes').classList.toggle('active', on);
+    if (page) renderNotes();
   }
 
   // 선택 영역 → { start, end } (문장 번호 + 글자 위치). 문장 밖(문단 사이 등)만 선택했으면 null.
@@ -323,9 +423,9 @@ const Reader = (() => {
     if (sel.isCollapsed || !sel.rangeCount) return;
     const range = sel.getRangeAt(0);
     if (!content.contains(range.commonAncestorContainer)) return;
-    const text = sel.toString().replace(/\s+/g, ' ').trim();
-    if (!text || !/[A-Za-z]/.test(text)) return;
     const span = rangeToSpan(range);
+    const text = span ? spanText(span) : sel.toString().replace(/\s+/g, ' ').trim();
+    if (!text || !/[A-Za-z]/.test(text)) return;
     // 선택 핸들을 움직이는 동안 같은 선택으로 여러 번 불리므로 바뀌었을 때만 다시 띄운다.
     const key = text + JSON.stringify(span);
     if (!popup.hidden && key === selKey) return;
@@ -389,7 +489,7 @@ const Reader = (() => {
     const setKorean = out => {
       popupTranslated = out;
       const h = page?.highlights.find(h => h.text === text && !h.translation);
-      if (h) { h.translation = out; Library.savePage(page); }
+      if (h) { h.translation = out; Library.savePage(page); renderNotes(); }
     };
 
     const translated = Translate.translate(text)
@@ -520,6 +620,14 @@ const Reader = (() => {
     lastPointer = e.pointerType;
     suppressClick = !popup.hidden && !popup.contains(e.target);
     if (suppressClick) hidePopup();
+  });
+
+  // 형광펜 주석 켜기/끄기 (💬)
+  setNotesOn(settings.showNotes !== false);
+  $('btn-notes').addEventListener('click', () => {
+    settings.showNotes = !notesOn;
+    saveSettings();
+    setNotesOn(settings.showNotes);
   });
 
   return {

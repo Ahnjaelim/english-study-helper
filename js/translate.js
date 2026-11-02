@@ -89,10 +89,18 @@ const Translate = (() => {
     return results.join(' ');
   }
 
-  async function translate(text) {
+  // 같은 글을 동시에 여러 번 요청하면 하나의 요청을 같이 기다린다.
+  const inFlight = new Map();
+  function translate(text) {
     const key = text.trim();
-    if (cache.has(key)) return cache.get(key);
+    if (cache.has(key)) return Promise.resolve(cache.get(key));
+    if (!inFlight.has(key)) {
+      inFlight.set(key, translateUncached(key).finally(() => inFlight.delete(key)));
+    }
+    return inFlight.get(key);
+  }
 
+  async function translateUncached(key) {
     let result;
     if ((await builtinAvailability()) !== 'unavailable') {
       try {
